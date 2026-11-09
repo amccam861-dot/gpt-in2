@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="description" content="纯前端 AI 图片生成与编辑工具，支持 OpenAI 兼容接口，数据仅保存在本机浏览器。" />
+  <title>AI 图片生成与编辑 · Web</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◈</span>
+      <div class="brand-text">
+        <h1>图片生成与编辑</h1>
+        <p>文生图 · 参考图编辑 · 纯前端，数据只存在本机</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="cfgBadge" class="badge">未配置</span>
+      <button id="toggleSettings" class="btn ghost only-mobile" type="button">设置</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside id="settings" class="sidebar">
+      <section class="card">
+        <h2>API 配置</h2>
+
+        <label class="field">
+          <span>API 地址</span>
+          <input id="apiUrl" type="text" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <label class="field">
+          <span>API Key</span>
+          <div class="input-row">
+            <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+            <button id="toggleKey" class="btn tiny" type="button">显示</button>
+          </div>
+        </label>
+
+        <label class="field">
+          <span>模型</span>
+          <input id="model" type="text" list="modelList" placeholder="gpt-image-1" spellcheck="false" />
+          <datalist id="modelList">
+            <option value="gpt-image-1"></option>
+            <option value="gpt-image-1-mini"></option>
+            <option value="dall-e-3"></option>
+            <option value="gemini-2.5-flash-image"></option>
+          </datalist>
+        </label>
+
+        <div class="row">
+          <button id="saveCfg" class="btn primary" type="button">保存配置</button>
+          <button id="testCfg" class="btn" type="button">测试连接</button>
+        </div>
+
+        <p class="hint">填到 <code>/v1</code> 这一层即可。Key 只写入本机 localStorage，不会上传。</p>
+      </section>
+
+      <section class="card">
+        <h2>生成参数</h2>
+
+        <label class="field">
+          <span>尺寸</span>
+          <select id="size">
+            <option value="auto">auto 自动</option>
+            <option value="1024x1024" selected>1024×1024 方形</option>
+            <option value="1536x1024">1536×1024 横向</option>
+            <option value="1024x1536">1024×1536 纵向</option>
+            <option value="1792x1024">1792×1024 DALL·E 横向</option>
+            <option value="1024x1792">1024×1792 DALL·E 纵向</option>
+            <option value="custom">自定义…</option>
+          </select>
+        </label>
+
+        <div id="customSizeRow" class="row hidden">
+          <input id="sizeW" type="number" min="64" step="16" value="1024" aria-label="宽" />
+          <span class="times">×</span>
+          <input id="sizeH" type="number" min="64" step="16" value="1024" aria-label="高" />
+        </div>
+
+        <label class="field">
+          <span>质量</span>
+          <select id="quality">
+            <option value="auto" selected>auto</option>
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+            <option value="standard">standard DALL·E</option>
+            <option value="hd">hd DALL·E</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>数量</span>
+          <input id="count" type="number" min="1" max="4" step="1" value="1" />
+        </label>
+
+        <label class="field">
+          <span>背景</span>
+          <select id="background">
+            <option value="auto" selected>auto</option>
+            <option value="opaque">opaque 不透明</option>
+            <option value="transparent">transparent 透明</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>输出格式</span>
+          <select id="format">
+            <option value="png" selected>PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WEBP</option>
+          </select>
+        </label>
+
+        <label class="check">
+          <input id="batch" type="checkbox" />
+          <span>多提示词批量（空行分隔）</span>
+        </label>
+      </section>
+    </aside>
+
+    <section class="work">
+      <section class="card composer">
+        <h2>提示词</h2>
+        <textarea id="prompt" rows="5" placeholder="描述你想要的画面…（有参考图时自动进入编辑模式）"></textarea>
+
+        <div id="dropZone" class="dropzone">
+          <input id="fileInput" type="file" accept="image/*" multiple hidden />
+          <p><strong>点击选择</strong> 或把参考图拖进来</p>
+          <p class="hint">支持多张（建议 ≤ 16 张）。有参考图时会调用 <code>/images/edits</code>。</p>
+        </div>
+        <div id="refs" class="refs"></div>
+
+        <div class="row between wrap">
+          <div class="row">
+            <button id="generate" class="btn primary big" type="button">生成</button>
+            <button id="clearPrompt" class="btn" type="button">清空</button>
+          </div>
+          <p id="status" class="status"></p>
+        </div>
+      </section>
+
+      <section class="card results">
+        <div class="row between wrap">
+          <h2>结果 <span id="resultCount" class="badge">0</span></h2>
+          <div class="row">
+            <button id="downloadAll" class="btn tiny" type="button">全部下载</button>
+            <button id="clearHistory" class="btn tiny danger" type="button">清空历史</button>
+          </div>
+        </div>
+        <div id="gallery" class="gallery"></div>
+        <p id="emptyTip" class="hint center">还没有作品，输入提示词开始吧。</p>
+      </section>
+    </section>
+  </main>
+
+  <div id="lightbox" class="lightbox hidden" role="dialog" aria-label="预览">
+    <img id="lightboxImg" alt="" />
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
